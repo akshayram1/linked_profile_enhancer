@@ -11,3 +11,4 @@ openai
 anthropic
 apify-client
 plotly
+Pillow

@@ -29,13 +29,25 @@ class ProfileOrchestrator:
         try:
             print(f"🎯 Starting profile enhancement for: {linkedin_url}")
             
-            # Clear cache if force refresh is requested
+            # Always clear cache for fresh data extraction
             if force_refresh:
+                print("🗑️ Clearing all cached data...")
                 self.memory.force_refresh_session(linkedin_url)
+                # Clear any session data for this URL
+                self.memory.clear_session_cache(linkedin_url)
+                # Also clear any general cache
+                self.memory.clear_session_cache()  # Clear all sessions
             
             # Step 1: Scrape LinkedIn profile data
             print("📡 Step 1: Scraping profile data...")
+            print(f"🔗 Target URL: {linkedin_url}")
             profile_data = self.scraper.extract_profile_data(linkedin_url)
+            
+            # Verify we got data for the correct URL
+            if profile_data.get('url') != linkedin_url:
+                print(f"⚠️ URL mismatch detected!")
+                print(f"   Expected: {linkedin_url}")
+                print(f"   Got: {profile_data.get('url', 'Unknown')}")
             
             # Step 2: Analyze the profile
             print("🔍 Step 2: Analyzing profile...")

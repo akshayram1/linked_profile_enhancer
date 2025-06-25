@@ -278,25 +278,44 @@ def display_profile_data(profile_data):
         st.warning("No profile data available")
         return
     
-    # Basic Information
-    st.subheader("👤 Basic Information")
-    col1, col2 = st.columns(2)
+    # Profile Header with Image
+    st.subheader("👤 Profile Overview")
+    
+    # Create columns for profile image and basic info
+    col1, col2, col3 = st.columns([1, 2, 2])
     
     with col1:
+        # Display profile image
+        profile_image = profile_data.get('profile_image_hq') or profile_data.get('profile_image')
+        if profile_image:
+            st.image(profile_image, width=150, caption="Profile Picture")
+        else:
+            st.markdown("""
+            <div style="width: 150px; height: 150px; background-color: #f0f0f0; border-radius: 50%; 
+                        display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                👤
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
         st.markdown(f"""
         <div class="info-card">
             <strong>Name:</strong> {profile_data.get('name', 'N/A')}<br>
             <strong>Headline:</strong> {profile_data.get('headline', 'N/A')}<br>
             <strong>Location:</strong> {profile_data.get('location', 'N/A')}<br>
-            <strong>Connections:</strong> {profile_data.get('connections', 'N/A')}
+            <strong>Connections:</strong> {profile_data.get('connections', 'N/A')}<br>
+            <strong>Followers:</strong> {profile_data.get('followers', 'N/A')}
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+    with col3:
         st.markdown(f"""
         <div class="info-card">
-            <strong>Profile URL:</strong> {profile_data.get('url', 'N/A')}<br>
-            <strong>Scraped At:</strong> {profile_data.get('scraped_at', 'N/A')}
+            <strong>Current Job:</strong> {profile_data.get('job_title', 'N/A')}<br>
+            <strong>Company:</strong> {profile_data.get('company_name', 'N/A')}<br>
+            <strong>Industry:</strong> {profile_data.get('company_industry', 'N/A')}<br>
+            <strong>Email:</strong> {profile_data.get('email', 'N/A')}<br>
+            <strong>Profile URL:</strong> <a href="{profile_data.get('url', '#')}" target="_blank">View Profile</a>
         </div>
         """, unsafe_allow_html=True)
     

@@ -433,8 +433,8 @@ class LinkedInEnhancerApp:
             gr.Markdown("### 💡 Example LinkedIn URLs (for testing)")
             gr.Examples(
                 examples=[
-                    ["https://www.linkedin.com/in/akshaychame/"],
-                    ["https://linkedin.com/in/sample-profile"],
+                    ["https://www.linkedin.com/in/example-profile-1/"],
+                    ["https://linkedin.com/in/sample-professional"],
                 ],
                 inputs=[linkedin_url]
             )
@@ -500,7 +500,7 @@ def run_api_test_demo():
     print("="*60)
     
     # Test LinkedIn URL (you can change this)
-    test_linkedin_url = "https://www.linkedin.com/in/akshaychame/"
+    test_linkedin_url = "https://www.linkedin.com/in/example-user/"
     
     print(f"\n🔍 Testing with LinkedIn URL: {test_linkedin_url}")
     print("-" * 50)
@@ -593,7 +593,7 @@ def run_quick_test():
         
         # Test with sample URL
         if apify_ok:
-            result = scraper.extract_profile_data("https://www.linkedin.com/in/akshaychame/")
+            result = scraper.extract_profile_data("https://www.linkedin.com/in/example-user/")
             print(f"Scraping: {'✅' if result else '❌'}")
         
         print("✅ Quick test completed!\n")

@@ -16,8 +16,14 @@ class ScraperAgent:
         if not self.apify_token:
             raise ValueError("APIFY_API_TOKEN not found in environment variables")
         
-        # Use the task-based API endpoint you provided
-        self.api_url = "https://api.apify.com/v2/actor-tasks/proactive_quantifier~linkedin-profile-scraper-task/run-sync-get-dataset-items?token=apify_api_4y5Vilfl2GDDlMSY1M2JhdJxowJPg01SpbH1&method=POST"
+        # Validate token format
+        if not self.apify_token.startswith('apify_api_'):
+            print(f"⚠️ Warning: Token doesn't start with 'apify_api_'. Current token starts with: {self.apify_token[:10]}...")
+        
+        # Use the new actor API endpoint
+        self.api_url = f"https://api.apify.com/v2/acts/dev_fusion~linkedin-profile-scraper/run-sync-get-dataset-items?token={self.apify_token}"
+        
+        print(f"🔑 Using Apify token: {self.apify_token[:15]}...")  # Show first 15 chars for debugging
     
     def extract_profile_data(self, linkedin_url: str) -> Dict[str, Any]:
         """
@@ -32,17 +38,23 @@ class ScraperAgent:
         try:
             print(f"🔍 Starting scraping for: {linkedin_url}")
             print(f"🔗 URL being processed: {linkedin_url}")
+            print(f"⏰ Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
             
             # Clean and validate URL
+            original_url = linkedin_url
             linkedin_url = linkedin_url.strip()
             if not linkedin_url.startswith('http'):
                 linkedin_url = 'https://' + linkedin_url
             
             print(f"🧹 Cleaned URL: {linkedin_url}")
             
+            # Verify URL consistency
+            if original_url != linkedin_url:
+                print(f"🔄 URL normalized: {original_url} → {linkedin_url}")
+            
             # Configure the run input with fresh URL
             run_input = {
-                "profileUrls": [linkedin_url],
+                "profileUrls": [linkedin_url],  # This actor expects profileUrls, not startUrls
                 "slowDown": True,  # To avoid being blocked
                 "includeSkills": True,
                 "includeExperience": True,
@@ -56,7 +68,8 @@ class ScraperAgent:
             
             # Make the API request
             print("🚀 Running Apify scraper via REST API...")
-            response = requests.post(                self.api_url,
+            response = requests.post(
+                self.api_url,
                 json=run_input,
                 headers={'Content-Type': 'application/json'},
                 timeout=180  # 3 minutes timeout
@@ -73,34 +86,66 @@ class ScraperAgent:
                     print("✅ Successfully extracted and processed profile data")
                     return processed_data
                 else:
-                    print("⚠️ No data in API response, falling back to mock data")
-                    return self._mock_profile_data(linkedin_url)
+                    error_msg = "No data returned from Apify API. The profile may be private or the scraper encountered an issue."
+                    print(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
             else:
-                print(f"❌ API request failed: {response.status_code} - {response.text}")
-                print("⚠️ Falling back to mock data")
-                return self._mock_profile_data(linkedin_url)
+                error_details = ""
+                try:
+                    error_response = response.json()
+                    error_details = f" - {error_response.get('error', {}).get('message', response.text)}"
+                except:
+                    error_details = f" - {response.text}"
+                
+                if response.status_code == 401:
+                    error_msg = f"Authentication failed (401): Invalid or expired API token{error_details}"
+                    print(f"❌ {error_msg}")
+                    print(f"🔑 Token being used: {self.apify_token[:15]}...")
+                    print(f"💡 Please check your APIFY_API_TOKEN in your .env file")
+                elif response.status_code == 404:
+                    error_msg = f"Actor not found (404): The actor 'dev_fusion~linkedin-profile-scraper' may not exist{error_details}"
+                    print(f"❌ {error_msg}")
+                elif response.status_code == 429:
+                    error_msg = f"Rate limit exceeded (429): Too many requests{error_details}"
+                    print(f"❌ {error_msg}")
+                else:
+                    error_msg = f"API request failed with status {response.status_code}{error_details}"
+                    print(f"❌ {error_msg}")
+                
+                raise requests.RequestException(error_msg)
                 
         except requests.Timeout:
-            print("⏰ Request timed out, falling back to mock data")
-            return self._mock_profile_data(linkedin_url)
+            error_msg = "Request timed out. The scraping operation took too long to complete."
+            print(f"⏰ {error_msg}")
+            raise requests.Timeout(error_msg)
         except Exception as e:
-            print(f"❌ Error extracting profile data: {str(e)}")
-            print("⚠️ Falling back to mock data for demonstration")
-            return self._mock_profile_data(linkedin_url)
+            error_msg = f"Error extracting profile data: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
     
     def test_apify_connection(self) -> bool:
         """Test if Apify connection is working"""
         try:
-            # Test with the task endpoint
-            test_url = "https://api.apify.com/v2/actor-tasks/proactive_quantifier~linkedin-profile-scraper-task?token=apify_api_4y5Vilfl2GDDlMSY1M2JhdJxowJPg01SpbH1"
+            # Test with the actor endpoint
+            test_url = f"https://api.apify.com/v2/acts/dev_fusion~linkedin-profile-scraper?token={self.apify_token}"
+            print(f"🔗 Testing connection to: {test_url[:50]}...")
+            
             response = requests.get(test_url, timeout=10)
             
             if response.status_code == 200:
-                task_info = response.json()
-                print(f"✅ Successfully connected to Apify task: {task_info.get('name', 'LinkedIn Profile Scraper Task')}")
+                actor_info = response.json()
+                print(f"✅ Successfully connected to Apify actor: {actor_info.get('name', 'LinkedIn Profile Scraper')}")
                 return True
+            elif response.status_code == 401:
+                print(f"❌ Authentication failed (401): Invalid or expired API token")
+                print(f"🔑 Token being used: {self.apify_token[:15]}...")
+                print(f"💡 Please check your APIFY_API_TOKEN in your .env file")
+                return False
+            elif response.status_code == 404:
+                print(f"❌ Actor not found (404): The actor 'dev_fusion~linkedin-profile-scraper' may not exist or be accessible")
+                return False
             else:
-                print(f"❌ Failed to connect to Apify: {response.status_code}")
+                print(f"❌ Failed to connect to Apify: {response.status_code} - {response.text}")
                 return False
         except Exception as e:
             print(f"❌ Failed to connect to Apify: {str(e)}")
@@ -112,123 +157,128 @@ class ScraperAgent:
         print(f"📊 Processing data for URL: {url}")
         print(f"📋 Raw data keys: {list(raw_data.keys())}")
         
-        # Extract basic information
+        # Extract basic information - using the correct field names from API
         profile_data = {
             'name': raw_data.get('fullName', ''),
             'headline': raw_data.get('headline', ''),
-            'location': raw_data.get('location', ''),
-            'about': raw_data.get('summary', ''),
-            'connections': raw_data.get('connectionsCount', 0),
+            'location': raw_data.get('addressWithCountry', raw_data.get('addressWithoutCountry', '')),
+            'about': raw_data.get('about', ''),  # API uses 'about' not 'summary'
+            'connections': raw_data.get('connections', 0),
+            'followers': raw_data.get('followers', 0),
+            'email': raw_data.get('email', ''),
             'url': url,  # Use the URL that was actually requested
-            'profile_image': raw_data.get('profilePicture', ''),
-            'scraped_at': time.strftime('%Y-%m-%d %H:%M:%S')
+            'profile_image': raw_data.get('profilePic', ''),
+            'profile_image_hq': raw_data.get('profilePicHighQuality', ''),
+            'scraped_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'job_title': raw_data.get('jobTitle', ''),
+            'company_name': raw_data.get('companyName', ''),
+            'company_industry': raw_data.get('companyIndustry', ''),
+            'company_website': raw_data.get('companyWebsite', ''),
+            'company_size': raw_data.get('companySize', ''),
+            'current_job_duration': raw_data.get('currentJobDuration', ''),
+            'top_skills': raw_data.get('topSkillsByEndorsements', '')
         }
         
         print(f"✅ Extracted profile for: {profile_data.get('name', 'Unknown')}")
         print(f"🔗 Profile URL stored: {profile_data['url']}")
         
-        # Process experience
+        # Process experience - API uses 'experiences' array
         experience_list = []
-        for exp in raw_data.get('experience', []):
+        for exp in raw_data.get('experiences', []):
             experience_item = {
                 'title': exp.get('title', ''),
-                'company': exp.get('companyName', ''),
-                'duration': f"{exp.get('startDate', '')} - {exp.get('endDate', 'Present')}",
-                'description': exp.get('description', ''),
-                'location': exp.get('location', ''),
-                'start_date': exp.get('startDate', ''),
-                'end_date': exp.get('endDate', ''),
-                'is_current': exp.get('endDate') is None or exp.get('endDate') == ''
+                'company': exp.get('subtitle', '').replace(' · Full-time', '').replace(' · Part-time', ''),
+                'duration': exp.get('caption', ''),
+                'description': '',  # Extract from subComponents if available
+                'location': exp.get('metadata', ''),
+                'company_logo': exp.get('logo', ''),
+                'is_current': 'Present' in exp.get('caption', '') or '·' not in exp.get('caption', '')
             }
+            
+            # Extract description from subComponents
+            if 'subComponents' in exp and exp['subComponents']:
+                for sub in exp['subComponents']:
+                    if 'description' in sub and sub['description']:
+                        descriptions = []
+                        for desc in sub['description']:
+                            if isinstance(desc, dict) and desc.get('text'):
+                                descriptions.append(desc['text'])
+                        experience_item['description'] = ' '.join(descriptions)
+            
             experience_list.append(experience_item)
         profile_data['experience'] = experience_list
         
-        # Process education
+        # Process education - API uses 'educations' array
         education_list = []
-        for edu in raw_data.get('education', []):
+        for edu in raw_data.get('educations', []):
             education_item = {
-                'degree': edu.get('degreeName', ''),
-                'school': edu.get('schoolName', ''),
-                'field': edu.get('fieldOfStudy', ''),
-                'year': edu.get('startDate', '') + ' - ' + edu.get('endDate', ''),
-                'start_date': edu.get('startDate', ''),
-                'end_date': edu.get('endDate', '')
+                'degree': edu.get('subtitle', ''),
+                'school': edu.get('title', ''),
+                'field': '',  # Extract from subtitle
+                'year': edu.get('caption', ''),
+                'logo': edu.get('logo', ''),
+                'grade': ''  # Extract from subComponents if available
             }
+            
+            # Split degree and field from subtitle
+            subtitle = edu.get('subtitle', '')
+            if ' - ' in subtitle:
+                parts = subtitle.split(' - ', 1)
+                education_item['degree'] = parts[0]
+                education_item['field'] = parts[1] if len(parts) > 1 else ''
+            elif ', ' in subtitle:
+                parts = subtitle.split(', ', 1)
+                education_item['degree'] = parts[0]
+                education_item['field'] = parts[1] if len(parts) > 1 else ''
+            
+            # Extract grade from subComponents
+            if 'subComponents' in edu and edu['subComponents']:
+                for sub in edu['subComponents']:
+                    if 'description' in sub and sub['description']:
+                        for desc in sub['description']:
+                            if isinstance(desc, dict) and desc.get('text', '').startswith('Grade:'):
+                                education_item['grade'] = desc['text']
+            
             education_list.append(education_item)
         profile_data['education'] = education_list
         
-        # Process skills
+        # Process skills - API uses 'skills' array with title
         skills_list = []
         for skill in raw_data.get('skills', []):
-            if isinstance(skill, dict):
-                skills_list.append(skill.get('name', ''))
-            else:
-                skills_list.append(str(skill))
+            if isinstance(skill, dict) and 'title' in skill:
+                skills_list.append(skill['title'])
+            elif isinstance(skill, str):
+                skills_list.append(skill)
         profile_data['skills'] = skills_list
         
-        # Additional information
+        # Process certifications - API uses 'licenseAndCertificates'
+        certifications_list = []
+        for cert in raw_data.get('licenseAndCertificates', []):
+            cert_item = {
+                'title': cert.get('title', ''),
+                'issuer': cert.get('subtitle', ''),
+                'date': cert.get('caption', ''),
+                'credential_id': cert.get('metadata', ''),
+                'logo': cert.get('logo', '')
+            }
+            certifications_list.append(cert_item)
+        profile_data['certifications'] = certifications_list
+        
+        # Process languages (if available)
         profile_data['languages'] = raw_data.get('languages', [])
-        profile_data['certifications'] = raw_data.get('certifications', [])
-        profile_data['volunteer_experience'] = raw_data.get('volunteerExperience', [])
+        
+        # Process volunteer experience (if available)
+        volunteer_list = []
+        for vol in raw_data.get('volunteerAndAwards', []):
+            if isinstance(vol, dict):
+                volunteer_list.append(vol)
+        profile_data['volunteer_experience'] = volunteer_list
+        
+        # Additional rich data
+        profile_data['honors_awards'] = raw_data.get('honorsAndAwards', [])
+        profile_data['projects'] = raw_data.get('projects', [])
+        profile_data['publications'] = raw_data.get('publications', [])
+        profile_data['recommendations'] = raw_data.get('recommendations', [])
+        profile_data['interests'] = raw_data.get('interests', [])
         
         return profile_data
-    
-    def _mock_profile_data(self, url: str) -> Dict[str, Any]:
-        """Mock profile data for demonstration purposes"""
-        print(f"⚠️ Using mock data for URL: {url}")
-        
-        # Extract potential name from URL for more realistic mock data
-        profile_name = "Demo User"
-        if "/in/" in url:
-            profile_slug = url.split("/in/")[-1].split("/")[0].replace("-", " ").title()
-            if profile_slug and len(profile_slug) > 2:
-                profile_name = profile_slug
-        
-        return {
-            'name': profile_name,
-            'headline': 'Software Engineer | Full Stack Developer | React & Node.js',
-            'location': 'India',
-            'about': f'Passionate software engineer with expertise in full-stack development. This is mock data for demonstration purposes since the actual LinkedIn profile at {url} could not be scraped.',
-            'experience': [
-                {
-                    'title': 'Software Engineer',
-                    'company': 'Tech Solutions',
-                    'duration': '2022 - Present',
-                    'description': 'Developed full-stack web applications using React and Node.js. Improved application performance by 40% and led a team of 3 developers.',
-                    'location': 'India',
-                    'start_date': '2022-01',
-                    'end_date': None,
-                    'is_current': True
-                },
-                {
-                    'title': 'Junior Developer',
-                    'company': 'Startup Inc',
-                    'duration': '2021 - 2022',
-                    'description': 'Built responsive web interfaces and REST APIs. Collaborated with cross-functional teams to deliver high-quality software solutions.',
-                    'location': 'India',
-                    'start_date': '2021-06',
-                    'end_date': '2022-01',
-                    'is_current': False
-                }
-            ],
-            'education': [
-                {
-                    'degree': 'Bachelor of Engineering',
-                    'school': 'Engineering College',
-                    'field': 'Computer Science',
-                    'year': '2017 - 2021',
-                    'start_date': '2017',
-                    'end_date': '2021'
-                }
-            ],
-            'skills': [
-                'JavaScript', 'React', 'Node.js', 'Python', 'HTML/CSS', 
-                'MongoDB', 'SQL', 'Git', 'AWS', 'Express.js', 'TypeScript'
-            ],
-            'connections': 500,
-            'url': url,
-            'languages': ['English', 'Hindi'],
-            'certifications': [],
-            'volunteer_experience': [],
-            'scraped_at': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
