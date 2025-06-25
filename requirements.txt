@@ -1,0 +1,13 @@
+gradio
+streamlit
+requests
+beautifulsoup4
+selenium
+pandas
+numpy
+python-dotenv
+pydantic
+openai
+anthropic
+apify-client
+plotly
