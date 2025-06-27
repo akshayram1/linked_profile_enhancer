@@ -231,4 +231,23 @@ For questions or support, please open an issue in the repository or contact the 
 ---
 
 **Note**: This tool is for educational and professional development purposes. Always respect LinkedIn's terms of service and data privacy regulations when using profile data.
-# linked_profile_enhancer
+
+## Documentation
+
+This project includes comprehensive documentation across multiple files:
+
+### 📚 Documentation Files
+
+- **[README.md](README.md)** - Main project overview and setup guide (this file)
+- **[PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md)** - Detailed project documentation and technical specifications
+- **[TECHNICAL_FILE_GUIDE.md](TECHNICAL_FILE_GUIDE.md)** - Technical implementation guide and file structure details
+- **[refrenece.md](refrenece.md)** - References, resources, and additional information
+
+### 📖 Quick Navigation
+
+| Document | Purpose | Content |
+|----------|---------|---------|
+| **README.md** | Main overview | Installation, usage, features, and basic setup |
+| **PROJECT_DOCUMENTATION.md** | Project details | Architecture, workflows, and detailed specifications |
+| **TECHNICAL_FILE_GUIDE.md** | Technical guide | File structure, implementation details, and developer guide |
+| **refrenece.md** | References | External resources, API documentation, and additional links |
